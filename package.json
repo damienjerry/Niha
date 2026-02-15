@@ -1,0 +1,25 @@
+{
+  "name": "niha-prototype",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"PORT=${API_PORT:-4001} npm run dev -w @niha/api\" \"EXPO_PUBLIC_API_URL=${EXPO_PUBLIC_API_URL:-http://localhost:${API_PORT:-4001}} EXPO_PORT=${EXPO_PORT:-8082} npm run dev -w @niha/mobile\"",
+    "dev:api": "npm run dev -w @niha/api",
+    "dev:mobile": "npm run dev -w @niha/mobile",
+    "dev:mobile:lan": "EXPO_PUBLIC_API_URL=${EXPO_PUBLIC_API_URL:-http://$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null || echo localhost):${API_PORT:-4001}} npm run dev -w @niha/mobile",
+    "build": "npm run build -w @niha/api && npm run build -w @niha/mobile",
+    "typecheck": "npm run typecheck -w @niha/api && npm run typecheck -w @niha/mobile",
+    "seed": "npm run seed -w @niha/api"
+  },
+  "overrides": {
+    "react": "19.1.0",
+    "react-native": "0.81.5",
+    "@react-native/virtualized-lists": "0.81.5"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}

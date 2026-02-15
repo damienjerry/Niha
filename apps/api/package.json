@@ -1,0 +1,32 @@
+{
+  "name": "@niha/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "PORT=${API_PORT:-4001} DATABASE_URL=${DATABASE_URL:-file:./dev.db} XDG_CACHE_HOME=${XDG_CACHE_HOME:-./.cache} prisma generate && PORT=${API_PORT:-4001} DATABASE_URL=${DATABASE_URL:-file:./dev.db} node --import tsx src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --import tsx --test src/ai/prompt.test.ts",
+    "prisma:generate": "DATABASE_URL=${DATABASE_URL:-file:./dev.db} XDG_CACHE_HOME=${XDG_CACHE_HOME:-./.cache} prisma generate",
+    "prisma:migrate": "DATABASE_URL=${DATABASE_URL:-file:./dev.db} XDG_CACHE_HOME=${XDG_CACHE_HOME:-./.cache} prisma migrate dev --name init",
+    "seed": "DATABASE_URL=${DATABASE_URL:-file:./dev.db} node --import tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "@fastify/cors": "^11.1.0",
+    "@fastify/jwt": "^10.0.0",
+    "@fastify/sensible": "^6.0.3",
+    "@prisma/client": "^6.4.1",
+    "dotenv": "^16.5.0",
+    "fastify": "^5.2.1",
+    "jose": "^6.1.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.4",
+    "prisma": "^6.4.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}

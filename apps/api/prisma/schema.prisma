@@ -1,0 +1,128 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum AuthProvider {
+  DEV
+  GOOGLE
+  APPLE
+}
+
+enum AiProvider {
+  OLLAMA
+  OPENAI
+  ANTHROPIC
+  NONE
+}
+
+model User {
+  id           String      @id @default(cuid())
+  email        String      @unique
+  displayName  String?
+  provider     AuthProvider
+  providerSub  String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  checkIns     CheckIn[]
+  suggestions  Suggestion[]
+  profile      Profile?
+  insights     Insight[]
+}
+
+model Profile {
+  id                    String   @id @default(cuid())
+  userId                String   @unique
+  displayName           String?
+  pronouns              String?
+  dateOfBirth           DateTime?
+  neurodivergenceTypes  String?  // JSON array: ["ADHD","Autism",...]
+  tracksCycle           Boolean  @default(false)
+  workPattern           String?  // SHIFT | NINE_TO_FIVE | FLEXIBLE | VARIABLE | OTHER
+  medications           String?
+  onboardingComplete    Boolean  @default(false)
+
+  // Tone preferences (1-5 scale)
+  toneDirectness        Int      @default(3)
+  toneFormality         Int      @default(2)
+  toneEncouragement     Int      @default(3)
+  toneDetail            Int      @default(3)
+  toneEmoji             Int      @default(1)
+
+  // App preferences
+  storageMode           String   @default("SERVER") // SERVER | LOCAL
+  checkInReminders      Boolean  @default(false)
+  reminderTime          String?  // e.g. "08:00"
+  visibleFields         String?  // JSON array of field names to show
+  theme                 String   @default("SYSTEM") // LIGHT | DARK | SYSTEM
+
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model CheckIn {
+  id                String      @id @default(cuid())
+  userId            String
+  createdAt         DateTime    @default(now())
+  energy            Int?
+  focus             Int?
+  mood              Int?
+  sleepQuality      Int?
+  sensoryLoad       Int?
+  cyclePhase        String?
+  notes             String?
+  usedHistorical    Boolean     @default(false)
+
+  // Future extensibility
+  socialDemand      Int?
+  burnoutSignal     Int?
+  routineDisruption String?
+  customFields      String?     // JSON for user-defined tracking
+
+  user              User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  suggestion        Suggestion?
+
+  @@index([userId, createdAt])
+}
+
+model Suggestion {
+  id                String      @id @default(cuid())
+  userId            String
+  checkInId         String      @unique
+  createdAt         DateTime    @default(now())
+  provider          AiProvider
+  modelName         String
+  confidence        Int
+  summary           String
+  planA             String
+  planB             String
+  planC             String
+  caution           String
+  nonMedicalNotice  String
+  user              User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  checkIn           CheckIn     @relation(fields: [checkInId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model Insight {
+  id          String   @id @default(cuid())
+  userId      String
+  type        String   // CORRELATION | TREND | SUGGESTION
+  title       String
+  body        String
+  dataPoints  Int
+  confidence  Int
+  dismissed   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
