@@ -7,7 +7,9 @@
     "dev": "expo start --clear --port ${EXPO_PORT:-8082}",
     "web": "expo start --web --clear --port ${EXPO_PORT:-8082}",
     "build": "expo export --platform web",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "android": "expo run:android",
+    "ios": "expo run:ios"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",

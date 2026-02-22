@@ -1,6 +1,6 @@
 import { env } from "../config.js";
 import type { CheckInPayload, SuggestionResult } from "../types.js";
-import { buildSuggestionPrompt, nonMedicalNotice, type TonePreferences } from "./prompt.js";
+import { buildSuggestionPrompt, nonMedicalNotice, type TonePreferences, type HealthContext } from "./prompt.js";
 
 type HistorySample = {
   createdAt: Date;
@@ -155,6 +155,39 @@ async function callAnthropic(prompt: string): Promise<SuggestionResult> {
   return sanitizeSuggestion(parsed, "ANTHROPIC", env.ANTHROPIC_MODEL);
 }
 
+async function callGemini(prompt: string): Promise<SuggestionResult> {
+  if (!env.GEMINI_API_KEY) {
+    throw new Error("GEMINI_API_KEY is missing");
+  }
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${env.GEMINI_MODEL}:generateContent?key=${env.GEMINI_API_KEY}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.3,
+          responseMimeType: "application/json",
+        },
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Gemini call failed with ${response.status}`);
+  }
+
+  const payload = (await response.json()) as {
+    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+  };
+
+  const content = payload.candidates?.[0]?.content?.parts?.[0]?.text ?? "{}";
+  const parsed = extractJson(content);
+  return sanitizeSuggestion(parsed, "GEMINI", env.GEMINI_MODEL);
+}
+
 function fallbackSuggestion(): SuggestionResult {
   return {
     provider: "NONE",
@@ -171,8 +204,8 @@ function fallbackSuggestion(): SuggestionResult {
   };
 }
 
-export async function generateSuggestion(checkIn: CheckInPayload, history: HistorySample[], tone?: TonePreferences): Promise<SuggestionResult> {
-  const prompt = buildSuggestionPrompt(checkIn, history, tone);
+export async function generateSuggestion(checkIn: CheckInPayload, history: HistorySample[], tone?: TonePreferences, health?: HealthContext): Promise<SuggestionResult> {
+  const prompt = buildSuggestionPrompt(checkIn, history, tone, health);
 
   try {
     if (env.AI_PROVIDER === "OLLAMA") {
@@ -185,6 +218,10 @@ export async function generateSuggestion(checkIn: CheckInPayload, history: Histo
 
     if (env.AI_PROVIDER === "ANTHROPIC") {
       return await callAnthropic(prompt);
+    }
+
+    if (env.AI_PROVIDER === "GEMINI") {
+      return await callGemini(prompt);
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown AI error";

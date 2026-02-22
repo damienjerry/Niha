@@ -22,6 +22,24 @@ export type TonePreferences = {
   emoji: number;
 };
 
+export type HealthContext = {
+  neurodivergenceTypes?: string[];
+  medications?: string;
+  medicationDetails?: Array<{
+    name: string;
+    dosage?: string;
+    timing?: string;
+    capacityEffect?: string;
+  }>;
+  sleepTarget?: number;
+  sleepIssues?: string[];
+  triggers?: string[];
+  copingStrategies?: string[];
+  energyBaseline?: number;
+  workPattern?: string;
+  tracksCycle?: boolean;
+};
+
 const DEFAULT_TONE: TonePreferences = {
   directness: 3,
   formality: 2,
@@ -66,10 +84,65 @@ function buildToneInstructions(tone: TonePreferences): string {
   return lines.join("\n");
 }
 
+function buildHealthContext(health: HealthContext): string {
+  const lines: string[] = [];
+
+  if (health.neurodivergenceTypes && health.neurodivergenceTypes.length > 0) {
+    lines.push(`Neurodivergence: ${health.neurodivergenceTypes.join(", ")}.`);
+  }
+
+  if (health.medicationDetails && health.medicationDetails.length > 0) {
+    const medLines = health.medicationDetails.map((m) => {
+      let desc = m.name;
+      if (m.dosage) desc += ` (${m.dosage})`;
+      if (m.timing) desc += ` taken ${m.timing}`;
+      if (m.capacityEffect) desc += ` — affects capacity: ${m.capacityEffect}`;
+      return desc;
+    });
+    lines.push(`Medications: ${medLines.join("; ")}.`);
+  } else if (health.medications) {
+    lines.push(`Medications (unstructured): ${health.medications}.`);
+  }
+
+  if (health.sleepTarget) {
+    lines.push(`Sleep target: ${health.sleepTarget} hours.`);
+  }
+
+  if (health.sleepIssues && health.sleepIssues.length > 0) {
+    lines.push(`Known sleep issues: ${health.sleepIssues.join(", ")}.`);
+  }
+
+  if (health.triggers && health.triggers.length > 0) {
+    lines.push(`Known capacity triggers: ${health.triggers.join(", ")}.`);
+  }
+
+  if (health.copingStrategies && health.copingStrategies.length > 0) {
+    lines.push(`Coping strategies that help: ${health.copingStrategies.join(", ")}.`);
+  }
+
+  if (health.energyBaseline) {
+    lines.push(`Self-reported typical energy baseline: ${health.energyBaseline}/10.`);
+  }
+
+  if (health.workPattern) {
+    lines.push(`Work pattern: ${health.workPattern}.`);
+  }
+
+  if (lines.length === 0) return "";
+
+  return [
+    "",
+    "User health profile (use this to personalize plans, never repeat it verbatim):",
+    ...lines,
+    "",
+  ].join("\n");
+}
+
 export function buildSuggestionPrompt(
   checkIn: CheckInPayload,
   history: HistorySample[],
-  tone?: TonePreferences
+  tone?: TonePreferences,
+  health?: HealthContext
 ): string {
   const effectiveTone = tone ?? DEFAULT_TONE;
   const current = JSON.stringify(checkIn);
@@ -94,10 +167,13 @@ export function buildSuggestionPrompt(
     "",
     "Communication style instructions:",
     buildToneInstructions(effectiveTone),
-    "",
+    health ? buildHealthContext(health) : "",
     "Adapt your summary tone to the user's apparent state:",
     "- On low-capacity days, be gentler and prioritize rest/basics.",
     "- On higher-capacity days, be more energetic and suggest productive options.",
+    "- If the user has known triggers, proactively suggest avoiding or managing them.",
+    "- If the user has coping strategies, weave them into the plans naturally.",
+    "- Compare current energy to baseline if available to gauge relative capacity.",
     "",
     "Output JSON only. No markdown.",
     "Required JSON schema:",

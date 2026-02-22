@@ -26,6 +26,12 @@ const schemaBootstrapSql = [
     "tracksCycle" BOOLEAN NOT NULL DEFAULT false,
     "workPattern" TEXT,
     "medications" TEXT,
+    "medicationDetails" TEXT,
+    "sleepTarget" INTEGER,
+    "sleepIssues" TEXT,
+    "triggers" TEXT,
+    "copingStrategies" TEXT,
+    "energyBaseline" INTEGER,
     "onboardingComplete" BOOLEAN NOT NULL DEFAULT false,
     "toneDirectness" INTEGER NOT NULL DEFAULT 3,
     "toneFormality" INTEGER NOT NULL DEFAULT 2,
@@ -60,6 +66,7 @@ const schemaBootstrapSql = [
     "burnoutSignal" INTEGER,
     "routineDisruption" TEXT,
     "customFields" TEXT,
+    "presetUsed" TEXT,
     FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE
   );
   `,
@@ -102,9 +109,26 @@ const schemaBootstrapSql = [
   `CREATE INDEX IF NOT EXISTS "Insight_userId_createdAt_idx" ON "Insight"("userId", "createdAt");`
 ];
 
+const schemaMigrations = [
+  `ALTER TABLE "CheckIn" ADD COLUMN "presetUsed" TEXT`,
+  `ALTER TABLE "Profile" ADD COLUMN "medicationDetails" TEXT`,
+  `ALTER TABLE "Profile" ADD COLUMN "sleepTarget" INTEGER`,
+  `ALTER TABLE "Profile" ADD COLUMN "sleepIssues" TEXT`,
+  `ALTER TABLE "Profile" ADD COLUMN "triggers" TEXT`,
+  `ALTER TABLE "Profile" ADD COLUMN "copingStrategies" TEXT`,
+  `ALTER TABLE "Profile" ADD COLUMN "energyBaseline" INTEGER`,
+];
+
 export async function ensureSchema(): Promise<void> {
   await prisma.$executeRawUnsafe("PRAGMA foreign_keys = ON;");
   for (const statement of schemaBootstrapSql) {
     await prisma.$executeRawUnsafe(statement);
+  }
+  for (const migration of schemaMigrations) {
+    try {
+      await prisma.$executeRawUnsafe(migration);
+    } catch {
+      // Column already exists — expected
+    }
   }
 }

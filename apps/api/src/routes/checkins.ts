@@ -4,7 +4,7 @@ import { checkInSchema } from "../utils/validators.js";
 import { generateSuggestion } from "../ai/providers.js";
 import { generateInsights } from "../ai/insights.js";
 
-function mapProvider(value: "OLLAMA" | "OPENAI" | "ANTHROPIC" | "NONE"): "OLLAMA" | "OPENAI" | "ANTHROPIC" | "NONE" {
+function mapProvider(value: "OLLAMA" | "OPENAI" | "ANTHROPIC" | "GEMINI" | "NONE"): "OLLAMA" | "OPENAI" | "ANTHROPIC" | "GEMINI" | "NONE" {
   switch (value) {
     case "OLLAMA":
       return "OLLAMA";
@@ -12,6 +12,8 @@ function mapProvider(value: "OLLAMA" | "OPENAI" | "ANTHROPIC" | "NONE"): "OLLAMA
       return "OPENAI";
     case "ANTHROPIC":
       return "ANTHROPIC";
+    case "GEMINI":
+      return "GEMINI";
     default:
       return "NONE";
   }
@@ -66,6 +68,7 @@ export async function checkInRoutes(app: FastifyInstance) {
           cyclePhase: payload.cyclePhase,
           notes: payload.notes,
           usedHistorical: history.length > 0,
+          presetUsed: payload.presetUsed,
           // Future extensibility fields
           socialDemand: payload.socialDemand,
           burnoutSignal: payload.burnoutSignal,
@@ -84,7 +87,32 @@ export async function checkInRoutes(app: FastifyInstance) {
           }
         : undefined;
 
-      const suggestion = await generateSuggestion(payload, history, tone);
+      const health = profile
+        ? {
+            neurodivergenceTypes: profile.neurodivergenceTypes
+              ? JSON.parse(profile.neurodivergenceTypes as string)
+              : undefined,
+            medications: profile.medications ?? undefined,
+            medicationDetails: profile.medicationDetails
+              ? JSON.parse(profile.medicationDetails as string)
+              : undefined,
+            sleepTarget: profile.sleepTarget ?? undefined,
+            sleepIssues: profile.sleepIssues
+              ? JSON.parse(profile.sleepIssues as string)
+              : undefined,
+            triggers: profile.triggers
+              ? JSON.parse(profile.triggers as string)
+              : undefined,
+            copingStrategies: profile.copingStrategies
+              ? JSON.parse(profile.copingStrategies as string)
+              : undefined,
+            energyBaseline: profile.energyBaseline ?? undefined,
+            workPattern: profile.workPattern ?? undefined,
+            tracksCycle: profile.tracksCycle,
+          }
+        : undefined;
+
+      const suggestion = await generateSuggestion(payload, history, tone, health);
 
       const savedSuggestion = await prisma.suggestion.create({
         data: {

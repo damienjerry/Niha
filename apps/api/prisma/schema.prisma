@@ -17,6 +17,7 @@ enum AiProvider {
   OLLAMA
   OPENAI
   ANTHROPIC
+  GEMINI
   NONE
 }
 
@@ -44,6 +45,12 @@ model Profile {
   tracksCycle           Boolean  @default(false)
   workPattern           String?  // SHIFT | NINE_TO_FIVE | FLEXIBLE | VARIABLE | OTHER
   medications           String?
+  medicationDetails     String?  // JSON array: [{name, dosage, timing, capacityEffect}]
+  sleepTarget           Int?     // Target hours of sleep
+  sleepIssues           String?  // JSON array: ["insomnia","fragmented",...]
+  triggers              String?  // JSON array: ["noise","crowds",...]
+  copingStrategies      String?  // JSON array: ["deep pressure","timer blocks",...]
+  energyBaseline        Int?     // Typical energy on a normal day (1-10)
   onboardingComplete    Boolean  @default(false)
 
   // Tone preferences (1-5 scale)
@@ -78,6 +85,7 @@ model CheckIn {
   cyclePhase        String?
   notes             String?
   usedHistorical    Boolean     @default(false)
+  presetUsed        String?
 
   // Future extensibility
   socialDemand      Int?

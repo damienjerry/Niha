@@ -11,6 +11,7 @@ export type CheckInPayload = {
   sensoryLoad?: number;
   cyclePhase?: string;
   notes?: string;
+  presetUsed?: string;
   // Future extensibility fields
   socialDemand?: number;
   burnoutSignal?: number;
@@ -19,7 +20,7 @@ export type CheckInPayload = {
 };
 
 export type SuggestionResult = {
-  provider: "OLLAMA" | "OPENAI" | "ANTHROPIC" | "NONE";
+  provider: "OLLAMA" | "OPENAI" | "ANTHROPIC" | "GEMINI" | "NONE";
   modelName: string;
   confidence: number;
   summary: string;

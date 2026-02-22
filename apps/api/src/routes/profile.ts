@@ -9,6 +9,17 @@ const profileUpdateSchema = z.object({
   tracksCycle: z.boolean().optional(),
   workPattern: z.enum(["SHIFT", "NINE_TO_FIVE", "FLEXIBLE", "VARIABLE", "OTHER"]).optional(),
   medications: z.string().max(500).optional(),
+  medicationDetails: z.array(z.object({
+    name: z.string().max(100),
+    dosage: z.string().max(100).optional(),
+    timing: z.string().max(100).optional(),
+    capacityEffect: z.string().max(200).optional(),
+  })).optional(),
+  sleepTarget: z.number().int().min(1).max(16).optional(),
+  sleepIssues: z.array(z.string().max(80)).optional(),
+  triggers: z.array(z.string().max(80)).optional(),
+  copingStrategies: z.array(z.string().max(200)).optional(),
+  energyBaseline: z.number().int().min(1).max(10).optional(),
 
   toneDirectness: z.number().int().min(1).max(5).optional(),
   toneFormality: z.number().int().min(1).max(5).optional(),
@@ -50,6 +61,18 @@ export async function profileRoutes(app: FastifyInstance) {
           visibleFields: profile.visibleFields
             ? JSON.parse(profile.visibleFields)
             : null,
+          medicationDetails: profile.medicationDetails
+            ? JSON.parse(profile.medicationDetails)
+            : [],
+          sleepIssues: profile.sleepIssues
+            ? JSON.parse(profile.sleepIssues)
+            : [],
+          triggers: profile.triggers
+            ? JSON.parse(profile.triggers)
+            : [],
+          copingStrategies: profile.copingStrategies
+            ? JSON.parse(profile.copingStrategies)
+            : [],
         },
       };
     }
@@ -78,6 +101,20 @@ export async function profileRoutes(app: FastifyInstance) {
       if (data.tracksCycle !== undefined) updateData.tracksCycle = data.tracksCycle;
       if (data.workPattern !== undefined) updateData.workPattern = data.workPattern;
       if (data.medications !== undefined) updateData.medications = data.medications;
+      if (data.medicationDetails !== undefined) {
+        updateData.medicationDetails = JSON.stringify(data.medicationDetails);
+      }
+      if (data.sleepTarget !== undefined) updateData.sleepTarget = data.sleepTarget;
+      if (data.sleepIssues !== undefined) {
+        updateData.sleepIssues = JSON.stringify(data.sleepIssues);
+      }
+      if (data.triggers !== undefined) {
+        updateData.triggers = JSON.stringify(data.triggers);
+      }
+      if (data.copingStrategies !== undefined) {
+        updateData.copingStrategies = JSON.stringify(data.copingStrategies);
+      }
+      if (data.energyBaseline !== undefined) updateData.energyBaseline = data.energyBaseline;
 
       if (data.toneDirectness !== undefined) updateData.toneDirectness = data.toneDirectness;
       if (data.toneFormality !== undefined) updateData.toneFormality = data.toneFormality;
@@ -108,6 +145,18 @@ export async function profileRoutes(app: FastifyInstance) {
           visibleFields: profile.visibleFields
             ? JSON.parse(profile.visibleFields)
             : null,
+          medicationDetails: profile.medicationDetails
+            ? JSON.parse(profile.medicationDetails)
+            : [],
+          sleepIssues: profile.sleepIssues
+            ? JSON.parse(profile.sleepIssues)
+            : [],
+          triggers: profile.triggers
+            ? JSON.parse(profile.triggers)
+            : [],
+          copingStrategies: profile.copingStrategies
+            ? JSON.parse(profile.copingStrategies)
+            : [],
         },
       };
     }

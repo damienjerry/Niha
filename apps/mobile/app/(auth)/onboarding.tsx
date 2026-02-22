@@ -19,8 +19,10 @@ import { tokens } from "../../src/theme/tokens";
 const STEPS = [
   "basics",
   "identity",
+  "health",
   "tracking",
   "work",
+  "coping",
   "tone",
 ] as const;
 type Step = (typeof STEPS)[number];
@@ -47,6 +49,42 @@ const WORK_OPTIONS = [
   { value: "OTHER", label: "Other" },
 ];
 
+const SLEEP_ISSUE_OPTIONS = [
+  "Insomnia",
+  "Fragmented sleep",
+  "Delayed sleep phase",
+  "Sleep apnea",
+  "Nightmares",
+  "Restless legs",
+  "Medication-related",
+];
+
+const TRIGGER_OPTIONS = [
+  "Noise",
+  "Crowds",
+  "Bright lights",
+  "Schedule changes",
+  "Social demands",
+  "Hunger",
+  "Temperature",
+  "Uncertainty",
+  "Time pressure",
+  "Phone notifications",
+];
+
+const COPING_OPTIONS = [
+  "Deep pressure",
+  "Noise-canceling headphones",
+  "Scheduled breaks",
+  "Body doubling",
+  "Movement breaks",
+  "Fidget tools",
+  "Written lists",
+  "Timer blocks",
+  "Nature/outdoors",
+  "Music",
+];
+
 const TONE_PRESETS = [
   {
     name: "Warm & supportive",
@@ -69,6 +107,55 @@ const TONE_PRESETS = [
     values: { directness: 4, formality: 3, encouragement: 1, detail: 1, emoji: 1 },
   },
 ];
+
+type MedicationEntry = {
+  name: string;
+  dosage: string;
+  timing: string;
+  capacityEffect: string;
+};
+
+function ChipSelector({
+  options,
+  selected,
+  onToggle,
+}: {
+  options: string[];
+  selected: string[];
+  onToggle: (option: string) => void;
+}) {
+  return (
+    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+      {options.map((option) => {
+        const isSelected = selected.includes(option);
+        return (
+          <Pressable
+            key={option}
+            onPress={() => onToggle(option)}
+            style={{
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+              borderRadius: 16,
+              borderWidth: 1,
+              borderColor: isSelected ? tokens.colors.accent : tokens.colors.border,
+              backgroundColor: isSelected ? "#e8f5ee" : "transparent",
+            }}
+          >
+            <Text
+              style={{
+                color: isSelected ? tokens.colors.accent : tokens.colors.text,
+                fontSize: 13,
+                fontWeight: isSelected ? "700" : "400",
+              }}
+            >
+              {option}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
 
 function ToneSlider({
   label,
@@ -128,13 +215,23 @@ export default function OnboardingScreen() {
   const [step, setStep] = useState<Step>("basics");
   const [saving, setSaving] = useState(false);
 
-  // Form state
+  // Form state — basics
   const [displayName, setDisplayName] = useState("");
   const [pronouns, setPronouns] = useState("");
   const [ndTypes, setNdTypes] = useState<string[]>([]);
   const [tracksCycle, setTracksCycle] = useState(false);
   const [workPattern, setWorkPattern] = useState<string>("");
   const [medications, setMedications] = useState("");
+
+  // Form state — health (new)
+  const [medicationDetails, setMedicationDetails] = useState<MedicationEntry[]>([]);
+  const [sleepTarget, setSleepTarget] = useState<number | null>(null);
+  const [sleepIssues, setSleepIssues] = useState<string[]>([]);
+  const [triggers, setTriggers] = useState<string[]>([]);
+
+  // Form state — coping (new)
+  const [copingStrategies, setCopingStrategies] = useState<string[]>([]);
+  const [energyBaseline, setEnergyBaseline] = useState<number | null>(null);
 
   // Tone
   const [toneDirectness, setToneDirectness] = useState(3);
@@ -174,10 +271,38 @@ export default function OnboardingScreen() {
     );
   }
 
+  function toggleList(setter: React.Dispatch<React.SetStateAction<string[]>>) {
+    return (item: string) => {
+      setter((prev) =>
+        prev.includes(item) ? prev.filter((i) => i !== item) : [...prev, item]
+      );
+    };
+  }
+
+  function addMedication() {
+    setMedicationDetails((prev) => [
+      ...prev,
+      { name: "", dosage: "", timing: "", capacityEffect: "" },
+    ]);
+  }
+
+  function updateMedication(index: number, field: keyof MedicationEntry, value: string) {
+    setMedicationDetails((prev) => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
+  }
+
+  function removeMedication(index: number) {
+    setMedicationDetails((prev) => prev.filter((_, i) => i !== index));
+  }
+
   async function save() {
     if (!token) return;
     setSaving(true);
     try {
+      const validMeds = medicationDetails.filter((m) => m.name.trim().length > 0);
       await apiRequest("/profile", {
         method: "PUT",
         token,
@@ -188,6 +313,12 @@ export default function OnboardingScreen() {
           tracksCycle,
           workPattern: workPattern || undefined,
           medications: medications.trim() || undefined,
+          medicationDetails: validMeds.length > 0 ? validMeds : undefined,
+          sleepTarget: sleepTarget ?? undefined,
+          sleepIssues: sleepIssues.length > 0 ? sleepIssues : undefined,
+          triggers: triggers.length > 0 ? triggers : undefined,
+          copingStrategies: copingStrategies.length > 0 ? copingStrategies : undefined,
+          energyBaseline: energyBaseline ?? undefined,
           toneDirectness,
           toneFormality,
           toneEncouragement,
@@ -196,9 +327,8 @@ export default function OnboardingScreen() {
         },
       });
       await apiRequest("/profile/onboarding", { method: "POST", token });
-      await refreshProfile(); // AuthGate will route to tabs
+      await refreshProfile();
     } catch {
-      // Still navigate — profile save is best-effort
       await refreshProfile();
     } finally {
       setSaving(false);
@@ -344,6 +474,177 @@ export default function OnboardingScreen() {
           </Card>
         )}
 
+        {/* Step: Health (NEW) */}
+        {step === "health" && (
+          <Card>
+            <Text style={{ color: tokens.colors.text, fontSize: 18, fontWeight: "700" }}>
+              Health details
+            </Text>
+            <Text style={{ color: tokens.colors.muted, lineHeight: 20 }}>
+              This helps generate more personalised plans. Everything stays private and is never
+              shared.
+            </Text>
+
+            {/* Structured medications */}
+            <View style={{ gap: tokens.spacing.sm }}>
+              <Text style={{ color: tokens.colors.text, fontWeight: "600", fontSize: 14 }}>
+                Medications
+              </Text>
+              {medicationDetails.map((med, index) => (
+                <View
+                  key={index}
+                  style={{
+                    borderWidth: 1,
+                    borderColor: tokens.colors.border,
+                    borderRadius: tokens.radius.md,
+                    padding: tokens.spacing.sm,
+                    gap: 8,
+                    backgroundColor: "#fbfefd",
+                  }}
+                >
+                  <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                    <Text style={{ color: tokens.colors.muted, fontSize: 12 }}>
+                      Medication {index + 1}
+                    </Text>
+                    <Pressable onPress={() => removeMedication(index)}>
+                      <Text style={{ color: "#b5493a", fontSize: 12, fontWeight: "600" }}>
+                        Remove
+                      </Text>
+                    </Pressable>
+                  </View>
+                  <TextInput
+                    value={med.name}
+                    onChangeText={(v) => updateMedication(index, "name", v)}
+                    placeholder="Name (e.g. Vyvanse)"
+                    placeholderTextColor="#8ca299"
+                    style={{
+                      borderWidth: 1,
+                      borderColor: tokens.colors.border,
+                      borderRadius: 8,
+                      padding: 8,
+                      color: tokens.colors.text,
+                      fontSize: 13,
+                    }}
+                  />
+                  <View style={{ flexDirection: "row", gap: 8 }}>
+                    <TextInput
+                      value={med.dosage}
+                      onChangeText={(v) => updateMedication(index, "dosage", v)}
+                      placeholder="Dosage"
+                      placeholderTextColor="#8ca299"
+                      style={{
+                        flex: 1,
+                        borderWidth: 1,
+                        borderColor: tokens.colors.border,
+                        borderRadius: 8,
+                        padding: 8,
+                        color: tokens.colors.text,
+                        fontSize: 13,
+                      }}
+                    />
+                    <TextInput
+                      value={med.timing}
+                      onChangeText={(v) => updateMedication(index, "timing", v)}
+                      placeholder="Timing (e.g. 7am)"
+                      placeholderTextColor="#8ca299"
+                      style={{
+                        flex: 1,
+                        borderWidth: 1,
+                        borderColor: tokens.colors.border,
+                        borderRadius: 8,
+                        padding: 8,
+                        color: tokens.colors.text,
+                        fontSize: 13,
+                      }}
+                    />
+                  </View>
+                  <TextInput
+                    value={med.capacityEffect}
+                    onChangeText={(v) => updateMedication(index, "capacityEffect", v)}
+                    placeholder="How does it affect your capacity? (e.g. helps focus, crashes at 3pm)"
+                    placeholderTextColor="#8ca299"
+                    style={{
+                      borderWidth: 1,
+                      borderColor: tokens.colors.border,
+                      borderRadius: 8,
+                      padding: 8,
+                      color: tokens.colors.text,
+                      fontSize: 13,
+                    }}
+                  />
+                </View>
+              ))}
+              <Pressable onPress={addMedication}>
+                <Text style={{ color: tokens.colors.accent, fontWeight: "600", fontSize: 13 }}>
+                  + Add medication
+                </Text>
+              </Pressable>
+            </View>
+
+            {/* Sleep target */}
+            <View style={{ gap: tokens.spacing.xs }}>
+              <Text style={{ color: tokens.colors.text, fontWeight: "600", fontSize: 14 }}>
+                Sleep target (hours)
+              </Text>
+              <View style={{ flexDirection: "row", gap: 6 }}>
+                {[5, 6, 7, 8, 9, 10, 11, 12].map((n) => (
+                  <Pressable
+                    key={n}
+                    onPress={() => setSleepTarget(sleepTarget === n ? null : n)}
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 18,
+                      borderWidth: 1,
+                      borderColor: sleepTarget === n ? tokens.colors.accent : tokens.colors.border,
+                      backgroundColor: sleepTarget === n ? "#e8f5ee" : "transparent",
+                      justifyContent: "center",
+                      alignItems: "center",
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: sleepTarget === n ? tokens.colors.accent : tokens.colors.text,
+                        fontWeight: sleepTarget === n ? "700" : "400",
+                        fontSize: 13,
+                      }}
+                    >
+                      {n}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+
+            {/* Sleep issues */}
+            <View style={{ gap: tokens.spacing.xs }}>
+              <Text style={{ color: tokens.colors.text, fontWeight: "600", fontSize: 14 }}>
+                Known sleep issues
+              </Text>
+              <ChipSelector
+                options={SLEEP_ISSUE_OPTIONS}
+                selected={sleepIssues}
+                onToggle={toggleList(setSleepIssues)}
+              />
+            </View>
+
+            {/* Triggers */}
+            <View style={{ gap: tokens.spacing.xs }}>
+              <Text style={{ color: tokens.colors.text, fontWeight: "600", fontSize: 14 }}>
+                Known capacity triggers
+              </Text>
+              <Text style={{ color: tokens.colors.muted, fontSize: 12, lineHeight: 16 }}>
+                What situations or stimuli tend to drain your capacity?
+              </Text>
+              <ChipSelector
+                options={TRIGGER_OPTIONS}
+                selected={triggers}
+                onToggle={toggleList(setTriggers)}
+              />
+            </View>
+          </Card>
+        )}
+
         {/* Step: Tracking */}
         {step === "tracking" && (
           <Card>
@@ -370,31 +671,6 @@ export default function OnboardingScreen() {
                 value={tracksCycle}
                 onValueChange={setTracksCycle}
                 trackColor={{ true: tokens.colors.accent, false: tokens.colors.border }}
-              />
-            </View>
-
-            <View style={{ gap: tokens.spacing.xs }}>
-              <Text style={{ color: tokens.colors.muted, fontSize: 13, fontWeight: "600" }}>
-                Medications (optional, stays private)
-              </Text>
-              <TextInput
-                value={medications}
-                onChangeText={setMedications}
-                multiline
-                numberOfLines={3}
-                placeholder="List any medications that may affect capacity (this is private and only used to improve suggestions)"
-                placeholderTextColor="#8ca299"
-                style={{
-                  borderWidth: 1,
-                  borderColor: tokens.colors.border,
-                  borderRadius: tokens.radius.md,
-                  backgroundColor: "#fbfefd",
-                  color: tokens.colors.text,
-                  paddingHorizontal: tokens.spacing.sm,
-                  paddingVertical: tokens.spacing.sm,
-                  minHeight: 70,
-                  textAlignVertical: "top",
-                }}
               />
             </View>
           </Card>
@@ -436,6 +712,67 @@ export default function OnboardingScreen() {
                   </Pressable>
                 );
               })}
+            </View>
+          </Card>
+        )}
+
+        {/* Step: Coping (NEW) */}
+        {step === "coping" && (
+          <Card>
+            <Text style={{ color: tokens.colors.text, fontSize: 18, fontWeight: "700" }}>
+              Coping strategies
+            </Text>
+            <Text style={{ color: tokens.colors.muted, lineHeight: 20 }}>
+              What helps you manage capacity? We'll weave these into your plans when relevant.
+            </Text>
+
+            <ChipSelector
+              options={COPING_OPTIONS}
+              selected={copingStrategies}
+              onToggle={toggleList(setCopingStrategies)}
+            />
+
+            {/* Energy baseline */}
+            <View style={{ gap: tokens.spacing.xs, marginTop: tokens.spacing.sm }}>
+              <Text style={{ color: tokens.colors.text, fontWeight: "600", fontSize: 14 }}>
+                Typical energy level
+              </Text>
+              <Text style={{ color: tokens.colors.muted, fontSize: 12, lineHeight: 16 }}>
+                On a normal day, what's your usual energy? This helps us gauge relative capacity.
+              </Text>
+              <View style={{ flexDirection: "row", gap: 6 }}>
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => {
+                  const selected = energyBaseline === n;
+                  const color =
+                    n <= 3 ? "#b5493a" : n <= 6 ? "#c0982a" : "#2d9f6f";
+                  return (
+                    <Pressable
+                      key={n}
+                      onPress={() => setEnergyBaseline(selected ? null : n)}
+                      style={{
+                        flex: 1,
+                        height: 36,
+                        borderRadius: 8,
+                        borderWidth: 1,
+                        borderColor: selected ? color : tokens.colors.border,
+                        backgroundColor: selected ? color + "20" : "transparent",
+                        justifyContent: "center",
+                        alignItems: "center",
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: selected ? color : tokens.colors.muted,
+                          fontWeight: selected ? "700" : "400",
+                          fontSize: 13,
+                        }}
+                      >
+                        {n}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
             </View>
           </Card>
         )}

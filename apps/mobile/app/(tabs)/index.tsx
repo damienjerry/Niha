@@ -16,6 +16,7 @@ import { Card } from "../../src/components/Card";
 import { HybridSlider } from "../../src/components/HybridSlider";
 import { InsightCard } from "../../src/components/InsightCard";
 import { PlanCard } from "../../src/components/PlanCard";
+import { CHECK_IN_PRESETS } from "../../src/data/checkInPresets";
 import { tokens } from "../../src/theme/tokens";
 
 type Suggestion = {
@@ -77,6 +78,9 @@ export default function HomeScreen() {
   const [cyclePhase, setCyclePhase] = useState<string>("");
   const [notes, setNotes] = useState("");
 
+  const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
+  const [showSliders, setShowSliders] = useState(false);
+
   const [loading, setLoading] = useState(false);
   const [qualityNotice, setQualityNotice] = useState<string | null>(null);
   const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
@@ -103,7 +107,32 @@ export default function HomeScreen() {
     setSensoryLoad(null);
     setCyclePhase("");
     setNotes("");
+    setSelectedPreset(null);
+    setShowSliders(false);
   }, []);
+
+  function applyPreset(presetId: string) {
+    const preset = CHECK_IN_PRESETS.find((p) => p.id === presetId);
+    if (!preset) return;
+
+    if (selectedPreset === presetId) {
+      setSelectedPreset(null);
+      setEnergy(null);
+      setFocus(null);
+      setMood(null);
+      setSleepQuality(null);
+      setSensoryLoad(null);
+      return;
+    }
+
+    setSelectedPreset(presetId);
+    setEnergy(preset.values.energy);
+    setFocus(preset.values.focus);
+    setMood(preset.values.mood);
+    setSleepQuality(preset.values.sleepQuality);
+    setSensoryLoad(preset.values.sensoryLoad);
+    setShowSliders(false);
+  }
 
   async function submitCheckIn() {
     if (!token) return;
@@ -125,6 +154,7 @@ export default function HomeScreen() {
             sensoryLoad: sensoryLoad ?? undefined,
             cyclePhase: cyclePhase.trim() || undefined,
             notes: notes.trim() || undefined,
+            presetUsed: selectedPreset ?? undefined,
           },
         }
       );
@@ -145,6 +175,7 @@ export default function HomeScreen() {
 
   const displayName = profile?.displayName || user?.displayName || "there";
   const greeting = `${timeGreeting()}, ${displayName}`;
+  const activePreset = CHECK_IN_PRESETS.find((p) => p.id === selectedPreset);
 
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
@@ -164,7 +195,7 @@ export default function HomeScreen() {
             {greeting}
           </Text>
           <Text style={{ color: tokens.colors.muted, lineHeight: 20 }}>
-            How are you today? Fill in what feels relevant.
+            How are you today? Pick a preset or customize below.
           </Text>
         </View>
 
@@ -177,51 +208,166 @@ export default function HomeScreen() {
           />
         )}
 
+        {/* Preset chips */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ gap: 8, paddingVertical: 2 }}
+        >
+          {CHECK_IN_PRESETS.map((preset) => {
+            const selected = selectedPreset === preset.id;
+            return (
+              <Pressable
+                key={preset.id}
+                onPress={() => applyPreset(preset.id)}
+                style={{
+                  paddingHorizontal: 14,
+                  paddingVertical: 10,
+                  borderRadius: 20,
+                  borderWidth: 1.5,
+                  borderColor: selected ? tokens.colors.accent : tokens.colors.border,
+                  backgroundColor: selected ? "#e8f5ee" : tokens.colors.card,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 6,
+                }}
+              >
+                <Text style={{ fontSize: 16 }}>{preset.emoji}</Text>
+                <Text
+                  style={{
+                    color: selected ? tokens.colors.accent : tokens.colors.text,
+                    fontWeight: selected ? "700" : "500",
+                    fontSize: 13,
+                  }}
+                >
+                  {preset.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+
         <Card>
-          {visibleFields.includes("energy") && (
-            <HybridSlider
-              label="Energy"
-              lowLabel="Running on fumes"
-              highLabel="Fully charged"
-              value={energy}
-              onChange={setEnergy}
-            />
+          {/* Selected preset summary */}
+          {activePreset && !showSliders && (
+            <View style={{ gap: tokens.spacing.sm }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <Text style={{ fontSize: 22 }}>{activePreset.emoji}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: tokens.colors.text, fontSize: 16, fontWeight: "700" }}>
+                    {activePreset.label}
+                  </Text>
+                  <Text style={{ color: tokens.colors.muted, fontSize: 13, lineHeight: 18 }}>
+                    {activePreset.description}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Mini metric summary */}
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+                {[
+                  { label: "Energy", value: activePreset.values.energy },
+                  { label: "Focus", value: activePreset.values.focus },
+                  { label: "Mood", value: activePreset.values.mood },
+                  { label: "Sleep", value: activePreset.values.sleepQuality },
+                  { label: "Sensory", value: activePreset.values.sensoryLoad },
+                ].map((metric) => {
+                  const color =
+                    metric.label === "Sensory"
+                      ? metric.value >= 7
+                        ? "#b5493a"
+                        : metric.value >= 4
+                          ? "#c0982a"
+                          : "#2d9f6f"
+                      : metric.value <= 3
+                        ? "#b5493a"
+                        : metric.value <= 6
+                          ? "#c0982a"
+                          : "#2d9f6f";
+                  return (
+                    <View
+                      key={metric.label}
+                      style={{
+                        paddingHorizontal: 10,
+                        paddingVertical: 4,
+                        borderRadius: 12,
+                        backgroundColor: color + "18",
+                        borderWidth: 1,
+                        borderColor: color + "40",
+                      }}
+                    >
+                      <Text style={{ color, fontSize: 12, fontWeight: "600" }}>
+                        {metric.label} {metric.value}
+                      </Text>
+                    </View>
+                  );
+                })}
+              </View>
+
+              <Pressable onPress={() => setShowSliders(true)}>
+                <Text style={{ color: tokens.colors.accent, fontSize: 13, fontWeight: "600" }}>
+                  Customize values
+                </Text>
+              </Pressable>
+            </View>
           )}
-          {visibleFields.includes("focus") && (
-            <HybridSlider
-              label="Focus"
-              lowLabel="Can't land"
-              highLabel="Locked in"
-              value={focus}
-              onChange={setFocus}
-            />
-          )}
-          {visibleFields.includes("mood") && (
-            <HybridSlider
-              label="Mood"
-              lowLabel="Heavy"
-              highLabel="Light"
-              value={mood}
-              onChange={setMood}
-            />
-          )}
-          {visibleFields.includes("sleepQuality") && (
-            <HybridSlider
-              label="Sleep quality"
-              lowLabel="Rough night"
-              highLabel="Slept great"
-              value={sleepQuality}
-              onChange={setSleepQuality}
-            />
-          )}
-          {visibleFields.includes("sensoryLoad") && (
-            <HybridSlider
-              label="Sensory load"
-              lowLabel="Calm"
-              highLabel="Overloaded"
-              value={sensoryLoad}
-              onChange={setSensoryLoad}
-            />
+
+          {/* Sliders — shown when no preset or when "Customize" is tapped */}
+          {(!selectedPreset || showSliders) && (
+            <View style={{ gap: tokens.spacing.sm }}>
+              {showSliders && (
+                <Pressable onPress={() => setShowSliders(false)}>
+                  <Text style={{ color: tokens.colors.accent, fontSize: 13, fontWeight: "600" }}>
+                    Hide sliders
+                  </Text>
+                </Pressable>
+              )}
+              {visibleFields.includes("energy") && (
+                <HybridSlider
+                  label="Energy"
+                  lowLabel="Running on fumes"
+                  highLabel="Fully charged"
+                  value={energy}
+                  onChange={setEnergy}
+                />
+              )}
+              {visibleFields.includes("focus") && (
+                <HybridSlider
+                  label="Focus"
+                  lowLabel="Can't land"
+                  highLabel="Locked in"
+                  value={focus}
+                  onChange={setFocus}
+                />
+              )}
+              {visibleFields.includes("mood") && (
+                <HybridSlider
+                  label="Mood"
+                  lowLabel="Heavy"
+                  highLabel="Light"
+                  value={mood}
+                  onChange={setMood}
+                />
+              )}
+              {visibleFields.includes("sleepQuality") && (
+                <HybridSlider
+                  label="Sleep quality"
+                  lowLabel="Rough night"
+                  highLabel="Slept great"
+                  value={sleepQuality}
+                  onChange={setSleepQuality}
+                />
+              )}
+              {visibleFields.includes("sensoryLoad") && (
+                <HybridSlider
+                  label="Sensory load"
+                  lowLabel="Calm"
+                  highLabel="Overloaded"
+                  value={sensoryLoad}
+                  onChange={setSensoryLoad}
+                />
+              )}
+            </View>
           )}
 
           {showCycle && (

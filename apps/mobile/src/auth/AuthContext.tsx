@@ -17,6 +17,17 @@ type Profile = {
   tracksCycle: boolean;
   workPattern: string | null;
   medications: string | null;
+  medicationDetails: Array<{
+    name: string;
+    dosage?: string;
+    timing?: string;
+    capacityEffect?: string;
+  }>;
+  sleepTarget: number | null;
+  sleepIssues: string[];
+  triggers: string[];
+  copingStrategies: string[];
+  energyBaseline: number | null;
   onboardingComplete: boolean;
   toneDirectness: number;
   toneFormality: number;

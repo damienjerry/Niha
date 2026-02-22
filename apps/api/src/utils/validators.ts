@@ -8,6 +8,7 @@ export const checkInSchema = z.object({
   sensoryLoad: z.number().int().min(1).max(10).optional(),
   cyclePhase: z.string().max(120).optional(),
   notes: z.string().max(2000).optional(),
+  presetUsed: z.string().max(80).optional(),
   // Future extensibility fields — accepted but not required
   socialDemand: z.number().int().min(1).max(10).optional(),
   burnoutSignal: z.number().int().min(1).max(10).optional(),
